@@ -4,7 +4,7 @@ variable "location"    { type = string }
 
 variable "unique_suffix" {
   type        = string
-  description = "Unique suffix for globally unique ACR name"
+  description = "Unique suffix for globally unique ACR name  of  the  suffix  name "
   default     = ""
 }
 
