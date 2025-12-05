@@ -31,5 +31,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
   tags = {
     environment = var.environment
     project     = var.project_name
+   # project     = var.project_name
   }
 }
