@@ -2,6 +2,11 @@ project_name = "cloudproj"
 environment  = "dev"
 location     = "australiacentral"
 
+# Generate unique suffix for globally unique resources
+# Use a random suffix or your initials + timestamp
+# Example: "vgw" + current date or random number
+resource_suffix = ""  # Change this to make resources unique
+
 address_space = ["10.10.0.0/16"]
 
 subnets = {
@@ -11,7 +16,8 @@ subnets = {
 }
 
 
-aks_node_count = 2
+aks_min_count = 1
+aks_max_count = 5
 
 mysql_admin_username = "adminuser"
 mysql_admin_password = "DevStrongPassword123!"

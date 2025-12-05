@@ -22,6 +22,20 @@ variable "location" {
 
 variable "aks_node_count" {
   type        = number
+  description = "Deprecated - use aks_min_count and aks_max_count for auto-scaling"
+  default     = 2
+}
+
+variable "aks_min_count" {
+  type        = number
+  description = "Minimum number of nodes when auto-scaling is enabled"
+  default     = 1
+}
+
+variable "aks_max_count" {
+  type        = number
+  description = "Maximum number of nodes when auto-scaling is enabled"
+  default     = 5
 }
 
 variable "aks_version" {

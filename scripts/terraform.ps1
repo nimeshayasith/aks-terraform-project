@@ -1,6 +1,7 @@
 # terraform.ps1
 # PowerShell equivalent of scripts/terraform.sh
-# Usage: .\scripts\terraform.ps1 plan|apply|... (passes args to terraform)
+# Usage: .\scripts\terraform.ps1 plan|apply|...
+# With backend: .\scripts\terraform.ps1 init -backend-config=backend-configs/dev.tfbackend
 
 param(
     [Parameter(ValueFromRemainingArguments=$true)]
@@ -8,11 +9,14 @@ param(
 )
 
 # Determine current workspace
-$envWorkspace = (& terraform workspace show) -replace "\r|\n", ""
-if ($envWorkspace -eq "default") { $envWorkspace = "dev" }
+$envWorkspace = (& terraform workspace show 2>$null) -replace "\r|\n", ""
+if ([string]::IsNullOrEmpty($envWorkspace) -or $envWorkspace -eq "default") { 
+    $envWorkspace = "dev" 
+}
 Write-Host "Current workspace: $envWorkspace"
 
 $varFile = "envs/$envWorkspace/terraform.tfvars"
+$backendConfig = "backend-configs/$envWorkspace.tfbackend"
 
 # Ensure Azure subscription is available for the azurerm provider.
 # If ARM_SUBSCRIPTION_ID isn't set, try to detect it from `az account show`.
@@ -36,13 +40,37 @@ if (-not $env:ARM_SUBSCRIPTION_ID) {
     }
 }
 
-# Build terraform args: take all remaining args and append -var-file
+# Build terraform args
+$tfCmd = $RemainingArgs[0]
 $tfArgs = @()
-if ($RemainingArgs) { $tfArgs += $RemainingArgs }
-$tfArgs += "-var-file=$varFile"
 
-# Execute terraform with the assembled arguments
-& terraform @tfArgs
+if ($tfCmd -eq "init") {
+    # For init command, check if backend config exists and should be used
+    $hasBackendConfigArg = $RemainingArgs -join " " | Select-String -Pattern "backend-config" -Quiet
+    
+    if ((Test-Path $backendConfig) -and -not $hasBackendConfigArg) {
+        Write-Host "Using backend config: $backendConfig" -ForegroundColor Cyan
+        $tfArgs += $RemainingArgs
+        $tfArgs += "-backend-config=$backendConfig"
+    } else {
+        $tfArgs += $RemainingArgs
+    }
+    
+    & terraform @tfArgs
+} elseif ($tfCmd -in @("plan", "apply", "destroy", "import", "refresh")) {
+    # For these commands, append -var-file
+    $tfArgs += $RemainingArgs
+    $tfArgs += "-var-file=$varFile"
+    
+    & terraform @tfArgs
+} else {
+    # Pass through all other commands as-is
+    if ($RemainingArgs) {
+        & terraform @RemainingArgs
+    } else {
+        & terraform
+    }
+}
 
 # Forward exit code
 exit $LASTEXITCODE

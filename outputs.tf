@@ -6,12 +6,24 @@ output "aks_fqdn" {
   value = module.aks.aks_fqdn
 }
 
+output "acr_name" {
+  value = module.acr.acr_name
+}
+
 output "acr_login_server" {
   value = module.acr.acr_login_server
 }
 
+output "keyvault_name" {
+  value = module.keyvault.keyvault_name
+}
+
 output "keyvault_uri" {
   value = module.keyvault.keyvault_uri
+}
+
+output "mysql_name" {
+  value = module.mysql.mysql_name
 }
 
 output "mysql_fqdn" {

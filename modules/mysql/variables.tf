@@ -16,6 +16,12 @@ variable "project_name" { type = string }
 variable "environment" { type = string }
 variable "location"    { type = string }
 
+variable "unique_suffix" {
+  type        = string
+  description = "Unique suffix for globally unique MySQL server name"
+  default     = ""
+}
+
 variable "mysql_admin_username" { type = string }
 variable "mysql_admin_password" { type = string }
 

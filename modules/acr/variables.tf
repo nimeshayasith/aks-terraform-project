@@ -2,6 +2,12 @@ variable "project_name" { type = string }
 variable "environment" { type = string }
 variable "location"    { type = string }
 
+variable "unique_suffix" {
+  type        = string
+  description = "Unique suffix for globally unique ACR name"
+  default     = ""
+}
+
 variable "resource_group_name" {
   type        = string
   description = "Resource group name from network module"

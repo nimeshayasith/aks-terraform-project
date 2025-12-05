@@ -1,13 +1,15 @@
 #!/bin/bash
 # Usage: ./terraform.sh plan|apply
+# With backend: ./terraform.sh init -backend-config=backend-configs/dev.tfbackend
 
-ENV=$(terraform workspace show)
+ENV=$(terraform workspace show 2>/dev/null || echo "default")
 if [ "$ENV" = "default" ]; then
   ENV="dev"
 fi
 
 echo "Current workspace: $ENV"
 VAR_FILE="envs/$ENV/terraform.tfvars"
+BACKEND_CONFIG="backend-configs/$ENV.tfbackend"
 
 # Ensure Azure subscription is available for the azurerm provider.
 # Terraform's azurerm provider will try to infer subscription from environment
@@ -34,6 +36,15 @@ fi
 
 CMD="$1"
 case "$CMD" in
+  init)
+    # If backend config exists, use it; otherwise pass through args
+    if [ -f "$BACKEND_CONFIG" ] && ! echo "$@" | grep -q "backend-config"; then
+      echo "Using backend config: $BACKEND_CONFIG"
+      terraform "$@" -backend-config="$BACKEND_CONFIG"
+    else
+      terraform "$@"
+    fi
+    ;;
   plan|apply|destroy|import|refresh)
     terraform "$@" -var-file="$VAR_FILE"
     ;;

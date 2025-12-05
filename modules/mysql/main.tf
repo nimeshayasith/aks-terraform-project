@@ -1,5 +1,5 @@
 resource "azurerm_mysql_flexible_server" "mysql" {
-  name                = "${var.project_name}-${var.environment}-mysql"
+  name                = var.unique_suffix != "" ? "${var.project_name}-${var.environment}-mysql-${var.unique_suffix}" : "${var.project_name}-${var.environment}-mysql"
   location            = var.location
   resource_group_name = var.resource_group_name
   administrator_login = var.mysql_admin_username

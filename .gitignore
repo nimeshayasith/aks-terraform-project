@@ -42,3 +42,16 @@ terraform.rc
 *.local
 .env
 .env.local
+
+# Terraform state files (now in remote backend)
+*.tfstate
+*.tfstate.*
+terraform.tfstate.d/
+
+# Backend config with sensitive data
+backend-configs/*.tfbackend
+!backend-configs/.gitkeep
+
+# Environment variables
+.env
+*.env

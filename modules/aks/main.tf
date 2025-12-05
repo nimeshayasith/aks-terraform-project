@@ -6,12 +6,11 @@ resource "azurerm_kubernetes_cluster" "aks" {
 
   default_node_pool {
     name                   = "default"
-    node_count             = var.aks_node_count
     vm_size                = var.vm_size
     vnet_subnet_id         = var.subnet_ids["aks"]
     auto_scaling_enabled   = true
-    min_count              = 1
-    max_count              = 5
+    min_count              = var.aks_min_count
+    max_count              = var.aks_max_count
     zones                  = length(var.availability_zones) > 0 ? var.availability_zones : null
     only_critical_addons_enabled = false
   }

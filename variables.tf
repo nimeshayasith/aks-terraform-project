@@ -1,6 +1,12 @@
 variable "project_name" {}
 variable "environment" {}
 
+variable "resource_suffix" {
+  type        = string
+  description = "Unique suffix for globally unique resource names (ACR, MySQL). Use initials + date or random number."
+  default     = ""
+}
+
 variable "location" {
   default = "eastus"
 }
@@ -16,8 +22,21 @@ variable "subnets" {
 }
 
 variable "aks_node_count" {
-  type    = number
-  default = 2
+  type        = number
+  description = "Deprecated - use aks_min_count and aks_max_count for auto-scaling"
+  default     = 2
+}
+
+variable "aks_min_count" {
+  type        = number
+  description = "Minimum number of nodes when auto-scaling is enabled"
+  default     = 1
+}
+
+variable "aks_max_count" {
+  type        = number
+  description = "Maximum number of nodes when auto-scaling is enabled"
+  default     = 5
 }
 
 variable "mysql_admin_username" {}

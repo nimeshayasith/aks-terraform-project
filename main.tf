@@ -13,7 +13,8 @@ module "aks" {
   project_name = var.project_name
   environment  = var.environment
   location     = var.location
-  aks_node_count = var.aks_node_count
+  aks_min_count = var.aks_min_count
+  aks_max_count = var.aks_max_count
   subnet_ids   = module.network.subnet_ids
   resource_group_name = module.network.resource_group_name
 }
@@ -28,6 +29,7 @@ module "mysql" {
   subnet_ids   = module.network.subnet_ids
   resource_group_name = module.network.resource_group_name
   vnet_id      = module.network.vnet_id
+  unique_suffix = local.unique_suffix
 }
 
 module "acr" {
@@ -38,6 +40,7 @@ module "acr" {
   resource_group_name = module.network.resource_group_name
   private_subnet_id   = lookup(module.network.subnet_ids, "aks", "")
   enable_private_endpoint = var.create_private_endpoints
+  unique_suffix = local.unique_suffix
 }
 
 module "keyvault" {

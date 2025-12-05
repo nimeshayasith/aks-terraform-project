@@ -1,5 +1,5 @@
 resource "azurerm_container_registry" "acr" {
-  name                = "${var.project_name}${var.environment}acr"
+  name                = var.unique_suffix != "" ? "${var.project_name}${var.environment}acr${var.unique_suffix}" : "${var.project_name}${var.environment}acr"
   location            = var.location
   resource_group_name = var.resource_group_name
   sku                 = var.acr_sku

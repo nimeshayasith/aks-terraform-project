@@ -1,7 +1,5 @@
 # K8S Internal Developer Platform — Infrastructure (AKS) — Terraform
 
-# K8S Internal Developer Platform — Infrastructure (AKS) — Terraform
-
 ## Project Overview
 
 This project provisions an AKS cluster with supporting infrastructure using Terraform, including:

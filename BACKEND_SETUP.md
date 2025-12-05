@@ -1,202 +1,8 @@
-# 💻 Azure Kubernetes Service (AKS) Terraform Project – Developer Guide
+# Remote Backend Setup Guide
 
-This guide outlines the essential steps for setting up your local environment and understanding the core tools required to work with the **Dev** AKS cluster and its resources.
+This guide explains how to configure and use Azure Storage as a remote backend for Terraform state management with state locking.
 
----
-
-### 1. Environment Setup
-
-To ensure successful deployment and interaction with the Azure resources, confirm all prerequisites are met:
-
-#### Prerequisites
-
-* **Azure subscription** and necessary permissions to deploy resources.
-* **Installed Tools:**
-    * **Terraform ($\geq 1.6$):** [https://www.terraform.io/downloads](https://www.terraform.io/downloads)
-    * **Azure CLI:** [https://docs.microsoft.com/en-us/cli/azure/install-azure-cli](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli)
-    * **kubectl:** [https://kubernetes.io/docs/tasks/tools/](https://kubernetes.io/docs/tasks/tools/)
-* Access to the project repository (`aks-terraform-project/`).
-* **Authentication:** Ensure you are logged into Azure CLI (`az login`).
-
----
-
-### 2. Terraform Workspaces
-
-The project uses Terraform Workspaces to enforce strict isolation between environments. You must select the appropriate workspace before running any deployment commands (`plan`, `apply`, `destroy`).
-
-| Workspace | Environment | Purpose |
-| :--- | :--- | :--- |
-| `dev` | Development | Primary environment for developers to test features and configuration. |
-| `stage` | Staging | Environment for integration testing and pre-production validation. |
-| `prod` | Production | Live production environment (highly restricted access). |
-
-* **State Isolation:** Workspaces ensure that the Terraform state is completely separate for each environment, preventing accidental cross-environment changes.
-* **Automated Variables:** Use the **workspace-aware wrapper script** (`terraform.sh` or `terraform.ps1`) to automatically load environment-specific variables from the correct `.tfvars` file, avoiding manual input.
-
-#### Selecting a Workspace
-
-```bash
-# Select the 'dev' workspace. If it doesn't exist, create it.
-terraform workspace select dev || terraform workspace new dev
-```
-
-### 3. Deploying Infrastructure (Dev)
-
-This section details the commands for initializing and deploying the **Dev** environment infrastructure.
-
-1.  **Select Dev Workspace:** Ensure you are operating within the dedicated Development workspace.
-
-    ```bash
-    terraform workspace select dev || terraform workspace new dev
-    ```
-
-2.  **Run Terraform Plan:** Review the plan output to see what resources will be created.
-
-    ```bash
-    ./scripts/terraform.sh plan
-    ```
-
-3.  **Apply Deployment:** Execute the deployment.
-
-    ```bash
-    ./scripts/terraform.sh apply
-    ```
-
-> ⚙️ **The wrapper script automatically picks the correct variable file (`envs/dev/terraform.tfvars`), so no variable prompts are required.**
-
----
-
-### 4. Accessing AKS Cluster
-
-Once the infrastructure is deployed, use the following steps to establish connectivity to the cluster API.
-
-1.  **Fetch Kubeconfig:** Run the utility script to securely retrieve the cluster configuration required for `kubectl`.
-
-    ```bash
-    bash scripts/get-kubeconfig.sh cloudproj-dev-rg cloudproj-dev-aks
-    ```
-
-2.  **Verify Cluster Connectivity:** Use `kubectl` to confirm that the nodes are ready and system pods are running.
-
-    ```bash
-    kubectl get nodes
-    kubectl get pods -A
-    ```
-
-3.  **Deployment:** Developers can now deploy applications to the **Dev AKS cluster** using standard `kubectl` commands or integrated CI/CD pipelines.
-
----
-
-### 5. Accessing ACR
-
-To manage container images, developers need to authenticate with the Azure Container Registry (ACR) and use standard Docker commands.
-
-1.  **Login to ACR:** Use the Azure CLI to authenticate your Docker client using the registry name.
-
-    ```bash
-    az acr login --name <acr_name>
-    ```
-
-2.  **Pull Images:** Once logged in, you can pull images for local testing or reference.
-
-    ```bash
-    # Pull the frontend image
-    docker pull cloudprojdevacr.azurecr.io/frontend:dev
-
-    # Pull the backend image
-    docker pull cloudprojdevacr.azurecr.io/backend:dev
-    ```
-
-> 🔒 **Push permissions (for deploying new images) are strictly controlled via Azure AD Role-Based Access Control (RBAC).**
-
-### 6. Database Access (Dev) 🔒
-
-Access to the Azure MySQL Flexible Server is highly restricted, leveraging a secure, private network configuration.
-
-* **Network Security:** The MySQL server resides in a **private subnet** and is accessed via a **private endpoint (PE)**. This architecture ensures that traffic never leaves the Azure backbone.
-* **Access Control:** Developers can only connect from **whitelisted IPs**. In the Dev environment, this often means your workstation's IP or a designated jump host IP must be explicitly allowed in the NSG rules for the `database subnet`.
-* **Security:** Database credentials (`username`, `password`) are stored securely in **Azure Key Vault** and should be read dynamically for connection (e.g., using a small script or retrieving them manually for client setup).
-
-#### Example Connection:
-
-```bash
-# Connect using the FQDN retrieved from deployment outputs
-mysql -h <mysql_fqdn> -u <username> -p
-```
-
-### 7. Stage / Production Workflow 🚀
-
-The **Stage** and **Production** environments are exclusively managed by automation to enforce security and consistency.
-
-* **Access Restriction:** **Stage** and **Prod** deployments are handled via **CI/CD pipelines**. Developers **do not get direct `kubectl` access** to these clusters. Access is restricted to service principals used by the pipeline.
-* **Deployment Method:** Deployment remains consistent using **Terraform workspaces**.
-
-#### Deploy Stage
-
-```bash
-terraform workspace select stage || terraform workspace new stage
-./scripts/terraform.sh plan
-./scripts/terraform.sh apply
-```
-
-#### Deploy Production
-
-```bash
-terraform workspace select prod || terraform workspace new prod
-./scripts/terraform.sh plan
-./scripts/terraform.sh apply
-```
-
-⚙️ The wrapper scripts automatically use the correct variable files (envs/stage/terraform.tfvars or envs/prod/terraform.tfvars), ensuring consistency and safety across production environments.
-
-
-### 8. Switching Between Workspaces 🔄
-
-To ensure all Terraform commands target the correct environment, you must explicitly switch your active workspace.
-
-* **List Workspaces:**
-    ```bash
-    terraform workspace list
-    ```
-
-* **Select Target Workspace:**
-    ```bash
-    terraform workspace select <workspace_name>
-    ```
-
-> ⚙️ This command is crucial. It ensures all subsequent Terraform commands automatically use the correct environment state and variables for the selected environment (`dev`, `stage`, or `prod`).
-
----
-
-### 9. Best Practices for Developers 🛡️
-
-Adhere to these best practices for safe, secure, and efficient operations:
-
-1.  **Never hardcode credentials;** always use **Azure Key Vault** for secret storage.
-2.  Always verify **`terraform plan`** before running **`terraform apply`** to confirm expected changes.
-3.  Use the wrapper scripts (`terraform.sh`/`.ps1`) to ensure the **correct `.tfvars` file** is automatically applied.
-4.  Avoid modifying **Stage/Prod clusters directly**; all changes should flow through **CI/CD pipelines**.
-5.  Follow **naming and tagging conventions** strictly to maintain resource organization and cost management.
-
----
-
-### 10. Troubleshooting Tips 💡
-
-| Issue | Potential Cause / Action |
-| :--- | :--- |
-| **Terraform prompts for variables** | Make sure you are using the wrapper script (`terraform.sh`/`.ps1`) or explicitly supplying the correct `tfvars` file via the `-var-file` flag. |
-| **Kubeconfig not updating** | Run **`scripts/get-kubeconfig.sh`** after deployment to fetch the latest cluster credentials. |
-| **ACR login fails (`az acr login`)** | Ensure your user account or service principal has the proper **Azure AD RBAC permissions** (e.g., `AcrPull`, `AcrPush`) for the registry. |
-
-This guide ensures developers can safely and efficiently work with all environments without manual input prompts, leveraging workspace-aware automation.
-
----
-
-## Remote Backend Setup Guide
-
-This section explains how to configure and use Azure Storage as a remote backend for Terraform state management with state locking.
-
-### Why Remote Backend?
+## Why Remote Backend?
 
 ✅ **State Locking**: Prevents concurrent modifications  
 ✅ **Team Collaboration**: Shared state across team members  
@@ -204,20 +10,20 @@ This section explains how to configure and use Azure Storage as a remote backend
 ✅ **Security**: Encrypted at rest, access controlled via Azure RBAC  
 ✅ **Disaster Recovery**: Centralized backup and geo-redundancy options  
 
-### Quick Setup
+## Quick Setup
 
-#### Step 1: Run the Setup Script
+### Step 1: Run the Setup Script
 
-```bash
-# Run the automated setup script (bash)
-./scripts/setup-remote-backend.sh
+```powershell
+# Run the automated setup script
+.\scripts\setup-remote-backend.ps1
 
-# Or with custom parameters (positional: resource-group storage-account container location)
-./scripts/setup-remote-backend.sh \
-  "my-tfstate-rg" \
-  "mytfstate1234" \
-  "tfstate" \
-  "australiacentral"
+# Or with custom parameters
+.\scripts\setup-remote-backend.ps1 `
+  -ResourceGroup "my-tfstate-rg" `
+  -StorageAccount "mytfstate1234" `
+  -Container "tfstate" `
+  -Location "australiacentral"
 ```
 
 This script will:
@@ -227,7 +33,7 @@ This script will:
 - Generate backend configuration files
 - Set environment variables for authentication
 
-#### Step 2: Migrate Existing State (if you have local state)
+### Step 2: Migrate Existing State (if you have local state)
 
 ```bash
 # Backup your local state first
@@ -243,7 +49,7 @@ terraform init -reconfigure -backend-config=backend-configs/dev.tfbackend
 # Answer: yes
 ```
 
-#### Step 3: Verify Remote State
+### Step 3: Verify Remote State
 
 ```bash
 # List resources (should work from remote state)
@@ -256,7 +62,7 @@ az storage blob list \
   --output table
 ```
 
-#### Step 4: Clean Up Local State Files
+### Step 4: Clean Up Local State Files
 
 ```bash
 # After confirming remote state works, delete local files
@@ -265,7 +71,7 @@ rm terraform.tfstate.backup
 rm -rf terraform.tfstate.d/
 ```
 
-### Backend Configuration Files
+## Backend Configuration Files
 
 The setup creates environment-specific backend configs:
 
@@ -277,7 +83,7 @@ backend-configs/
 └── README.md
 ```
 
-#### Example: dev.tfbackend
+### Example: dev.tfbackend
 ```hcl
 resource_group_name  = "terraform-state-rg"
 storage_account_name = "tfstate1234"
@@ -285,9 +91,9 @@ container_name       = "tfstate"
 key                  = "dev/terraform.tfstate"
 ```
 
-### Usage
+## Usage
 
-#### Initialize with Backend
+### Initialize with Backend
 
 ```bash
 # Using helper script (auto-detects environment)
@@ -300,7 +106,7 @@ terraform init -backend-config=backend-configs/dev.tfbackend
 terraform init -reconfigure -backend-config=backend-configs/prod.tfbackend
 ```
 
-#### Regular Operations
+### Regular Operations
 
 ```bash
 # Plan (uses remote state automatically)
@@ -314,9 +120,9 @@ terraform state list
 terraform state show azurerm_kubernetes_cluster.aks
 ```
 
-### Authentication
+## Authentication
 
-#### Option 1: Access Key (Quick Start)
+### Option 1: Access Key (Quick Start)
 
 ```powershell
 # Set in current session
@@ -339,7 +145,7 @@ az storage account keys list \
   --query "[0].value" -o tsv
 ```
 
-#### Option 2: Azure AD / Managed Identity (Recommended for Production)
+### Option 2: Azure AD / Managed Identity (Recommended for Production)
 
 Update `backend.tf`:
 ```hcl
@@ -366,7 +172,7 @@ az role assignment create \
   --scope "/subscriptions/<subscription-id>/resourceGroups/terraform-state-rg/providers/Microsoft.Storage/storageAccounts/<storage-account-name>"
 ```
 
-#### Option 3: Service Principal (CI/CD)
+### Option 3: Service Principal (CI/CD)
 
 ```bash
 # Create service principal
@@ -382,7 +188,7 @@ export ARM_TENANT_ID="<tenant>"
 export ARM_SUBSCRIPTION_ID="<subscription-id>"
 ```
 
-### State Locking
+## State Locking
 
 Azure Storage backend provides **automatic state locking** using blob leases:
 
@@ -400,16 +206,16 @@ terraform apply
 #   Created:   2025-12-04 10:30:00
 ```
 
-#### Force Unlock (Use with Caution)
+### Force Unlock (Use with Caution)
 
 ```bash
 # Only if lock is stuck after a crash
 terraform force-unlock <lock-id>
 ```
 
-### Multi-Environment Setup
+## Multi-Environment Setup
 
-#### Separate State Files per Environment
+### Separate State Files per Environment
 
 ```
 Container: tfstate
@@ -418,7 +224,7 @@ Container: tfstate
 └── prod/terraform.tfstate
 ```
 
-#### Switch Environments
+### Switch Environments
 
 ```bash
 # Initialize for dev
@@ -434,9 +240,9 @@ terraform init -reconfigure -backend-config=backend-configs/prod.tfbackend
 ./scripts/terraform.sh plan -var-file=envs/prod/terraform.tfvars
 ```
 
-### State Management
+## State Management
 
-#### View State
+### View State
 
 ```bash
 # List all resources
@@ -449,7 +255,7 @@ terraform state show azurerm_kubernetes_cluster.aks
 terraform state pull > current-state.json
 ```
 
-#### Backup and Recovery
+### Backup and Recovery
 
 ```bash
 # Download specific state version
@@ -469,16 +275,16 @@ az storage blob list \
   --output table
 ```
 
-#### Restore from Backup
+### Restore from Backup
 
 ```bash
 # Push a specific version back as current state
 terraform state push terraform.tfstate.backup
 ```
 
-### Security Best Practices
+## Security Best Practices
 
-#### Storage Account Configuration
+### Storage Account Configuration
 
 ✅ **Enabled by setup script:**
 - HTTPS only
@@ -487,7 +293,7 @@ terraform state push terraform.tfstate.backup
 - No public access
 - Encryption at rest
 
-#### Additional Hardening
+### Additional Hardening
 
 ```bash
 # Enable soft delete (30-day recovery)
@@ -515,9 +321,9 @@ az storage account network-rule add \
   --ip-address <your-ip>
 ```
 
-### CI/CD Integration
+## CI/CD Integration
 
-#### GitHub Actions Example
+### GitHub Actions Example
 
 ```yaml
 name: Terraform
@@ -555,7 +361,7 @@ jobs:
       run: terraform apply -auto-approve -var-file=envs/dev/terraform.tfvars
 ```
 
-#### Azure DevOps Example
+### Azure DevOps Example
 
 ```yaml
 trigger:
@@ -591,16 +397,16 @@ steps:
     commandOptions: '-var-file=envs/dev/terraform.tfvars'
 ```
 
-### Troubleshooting Backend Issues
+## Troubleshooting
 
-#### Error: Backend configuration changed
+### Error: Backend configuration changed
 
 ```bash
 # Reinitialize backend
 terraform init -reconfigure
 ```
 
-#### Error: Failed to acquire state lock
+### Error: Failed to acquire state lock
 
 ```bash
 # Check who has the lock
@@ -611,7 +417,7 @@ terraform plan
 terraform force-unlock <lock-id>
 ```
 
-#### Error: No valid credential sources
+### Error: No valid credential sources
 
 ```bash
 # Ensure ARM_ACCESS_KEY is set
@@ -621,7 +427,7 @@ echo $ARM_ACCESS_KEY
 az login
 ```
 
-#### State file not found
+### State file not found
 
 ```bash
 # Check if state exists in storage
@@ -634,7 +440,7 @@ az storage blob exists \
 terraform init -backend-config=backend-configs/dev.tfbackend
 ```
 
-### Migration Checklist
+## Migration Checklist
 
 - [ ] Run `.\scripts\setup-remote-backend.ps1`
 - [ ] Backup local state: `cp terraform.tfstate terraform.tfstate.local.backup`
@@ -648,7 +454,7 @@ terraform init -backend-config=backend-configs/dev.tfbackend
 - [ ] Share backend config with team
 - [ ] Document authentication method for team
 
-### Team Onboarding
+## Team Onboarding
 
 Share with new team members:
 
@@ -672,9 +478,8 @@ Share with new team members:
    terraform state list
    ```
 
-### References
+## References
 
 - [Terraform Azure Backend Documentation](https://www.terraform.io/language/settings/backends/azurerm)
 - [Azure Storage Security Best Practices](https://docs.microsoft.com/azure/storage/common/storage-security-guide)
 - [State Locking](https://www.terraform.io/language/state/locking)
-- See also: [BACKEND_SETUP.md](BACKEND_SETUP.md) and [BACKEND_QUICKSTART.md](BACKEND_QUICKSTART.md) for complete reference
